@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "2048-game"
+        CONTAINER_NAME = "2048-container"
+        HOST_PORT = "9090"      // Avoid 8080 (Jenkins uses it)
+        CONTAINER_PORT = "80"
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'master', url: 'https://github.com/yesk993-ops/2048.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh """
+                        docker build -t ${IMAGE_NAME}:latest .
+                    """
+                }
+            }
+        }
+
+        stage('Stop & Remove Old Container') {
+            steps {
+                script {
+                    sh """
+                        if [ \$(docker ps -aq -f name=${CONTAINER_NAME}) ]; then
+                            docker rm -f ${CONTAINER_NAME}
+                        fi
+                    """
+                }
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                script {
+                    sh """
+                        docker run -d \
+                        --name ${CONTAINER_NAME} \
+                        -p ${HOST_PORT}:${CONTAINER_PORT} \
+                        ${IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Deployment Info') {
+            steps {
+                echo "========================================="
+                echo "2048 Game Successfully Deployed 🚀"
+                echo "Access it at: http://localhost:${HOST_PORT}"
+                echo "========================================="
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Build & Deployment SUCCESS ✅"
+        }
+        failure {
+            echo "Build FAILED ❌ — Check console logs"
+        }
+    }
+}
